@@ -13,7 +13,16 @@ def _fast_hist(label_true, label_pred, n_class):
     return hist
 
 
-def scores(label_trues, label_preds, n_class):
+def scores(label_trues, label_preds, n_class, exclude_background=True):
+    """
+    Compute segmentation metrics.
+    
+    Args:
+        label_trues: Ground truth labels
+        label_preds: Predicted labels
+        n_class: Number of classes
+        exclude_background: If True, exclude class 0 from Mean IoU calculation
+    """
     hist = np.zeros((n_class, n_class))
     for lt, lp in zip(label_trues, label_preds):
         hist += _fast_hist(lt.flatten(), lp.flatten(), n_class)
@@ -22,7 +31,16 @@ def scores(label_trues, label_preds, n_class):
     acc_cls = np.nanmean(acc_cls)
     iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
     valid = hist.sum(axis=1) > 0  # added
-    mean_iu = np.nanmean(iu[valid])
+    
+    # Exclude background (class 0) from mean IoU if specified
+    if exclude_background and n_class > 1:
+        # Only compute mean over classes 1 to n_class-1
+        valid_foreground = valid[1:]  # Exclude class 0
+        iu_foreground = iu[1:]  # Exclude class 0
+        mean_iu = np.nanmean(iu_foreground[valid_foreground])
+    else:
+        mean_iu = np.nanmean(iu[valid])
+    
     freq = hist.sum(axis=1) / hist.sum()
     fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
     cls_iu = dict(zip(range(n_class), iu))

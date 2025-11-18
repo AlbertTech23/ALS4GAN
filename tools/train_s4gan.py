@@ -157,7 +157,7 @@ def one_hot(label):
 def compute_argmax_map(output):
   output = output.detach().cpu().numpy()
   output = output.transpose((1, 2, 0))
-  output = np.asarray(np.argmax(output, axis = 2), dtype = np.int)
+  output = np.asarray(np.argmax(output, axis = 2), dtype = np.int32)
   output = torch.from_numpy(output).float()
   return output
 

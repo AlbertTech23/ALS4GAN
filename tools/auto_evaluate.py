@@ -146,10 +146,10 @@ def main():
             output = interp(output).cpu().data[0].numpy()
             
             output = output[:,:size[0],:size[1]]
-            gt = np.asarray(label[0].numpy()[:size[0],:size[1]], dtype=np.int)
+            gt = np.asarray(label[0].numpy()[:size[0],:size[1]], dtype=np.int32)
             
             output = output.transpose(1,2,0)
-            output = np.asarray(np.argmax(output, axis=2), dtype=np.int)
+            output = np.asarray(np.argmax(output, axis=2), dtype=np.int32)
             
             
             if args.crf:

@@ -14,8 +14,15 @@ class s4GAN_discriminator(nn.Module):
             self.avgpool = nn.AvgPool2d((20, 20))
         elif dataset == 'cityscapes':
             self.avgpool = nn.AvgPool2d((16, 32))
-        elif dataset == 'ucm' or dataset=='deepglobe':
+        elif dataset == 'ucm' or dataset == 'deepglobe':
             self.avgpool = nn.AvgPool2d((20, 20))
+        elif dataset == 'custom':
+            # For custom Salak dataset with 256x256 input
+            # After 4 conv layers with stride 2: 256 -> 128 -> 64 -> 32 -> 16
+            self.avgpool = nn.AvgPool2d((16, 16))
+        else:
+            # Default fallback
+            self.avgpool = nn.AvgPool2d((16, 16))
         self.fc = nn.Linear(ndf*8, 1)
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
         self.drop = nn.Dropout2d(0.5)

@@ -1,0 +1,4 @@
+
+Class distribution in DJI_0488_patch_009_006.png:
+----------------------------------------
+Ignore (255):  65536 pixels (100.00%)

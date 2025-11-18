@@ -1,0 +1,41 @@
+name: als4gan_env
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Core
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - scikit-learn
+  - scikit-image
+  - matplotlib
+  - pillow
+  - opencv
+  - tqdm
+  - pyyaml
+  - requests
+  - tensorboard
+  - pytorch
+  - torchvision
+  - torchaudio
+
+  # Optional utilities
+  - cython
+  - ninja
+
+  # Pip-only extras
+  - pip:
+      - albumentations
+      - patchify
+      # - pydensecrf
+      - aiohttp
+      - google-auth
+      - google-auth-oauthlib
+      - tqdm
+      - werkzeug
+      - wandb
+      - pandas
