@@ -82,7 +82,7 @@ RANDOM_SEED = 5000
 GRADIENT_CLIP_MAX_NORM = 10.0
 EMA_DECAY = 0.9995  # Slightly higher for more stability
 SELF_TRAINING_START_ITER = 500
-EARLY_STOP_PATIENCE = 15
+EARLY_STOP_PATIENCE = 10
 
 
 class ExponentialMovingAverage:
@@ -129,6 +129,9 @@ def get_arguments():
     parser.add_argument("--data-root", type=str, required=True)
     parser.add_argument("--class-mapping", type=str, required=True)
     parser.add_argument("--num-classes", type=int, default=7)
+    parser.add_argument("--labeled-files", type=str, default="labeled_files.txt", 
+                        choices=["labeled_files.txt", "labeled_files_50.txt", "labeled_files_100.txt"],
+                        help="Choose labeled files list: labeled_files.txt, labeled_files_50.txt, or labeled_files_100.txt")
     
     # Architecture
     parser.add_argument("--backbone", type=str, default="resnet50", choices=["resnet50", "resnet101"])
@@ -311,10 +314,13 @@ def compute_class_weights_from_dataset(dataset, num_classes, ignore_label=255):
 
 def evaluate_model(model, dataloader, device, num_classes, ignore_label=255, exclude_background=True):
     """
-    Evaluate model and compute mIoU
+    Evaluate model and compute detailed mIoU metrics
     
     Args:
         exclude_background: If True, exclude class 0 from mIoU calculation (recommended)
+    
+    Returns:
+        dict: Contains 'miou', 'miou_with_bg', 'class_ious', 'detailed_metrics'
     """
     model.eval()
     label_trues = []
@@ -343,10 +349,26 @@ def evaluate_model(model, dataloader, device, num_classes, ignore_label=255, exc
     model.train()
     
     if len(label_trues) == 0:
-        return 0.0
+        return {
+            'miou': 0.0,
+            'miou_with_bg': 0.0,
+            'class_ious': [0.0] * num_classes,
+            'detailed_metrics': None
+        }
     
-    metrics = scores(label_trues, label_preds, num_classes, exclude_background=exclude_background)
-    return metrics["Mean IoU"]
+    # Get metrics excluding background (class 0)
+    metrics_no_bg = scores(label_trues, label_preds, num_classes, exclude_background=True)
+    # Get metrics including background (class 0)
+    metrics_with_bg = scores(label_trues, label_preds, num_classes, exclude_background=False)
+    
+    class_ious = [metrics_no_bg['Class IoU'].get(i, 0.0) for i in range(num_classes)]
+    
+    return {
+        'miou': metrics_no_bg['Mean IoU'],
+        'miou_with_bg': metrics_with_bg['Mean IoU'],
+        'class_ious': class_ious,
+        'detailed_metrics': metrics_no_bg
+    }
 
 
 def main():
@@ -396,9 +418,13 @@ def main():
     print("Loading Salak Dataset...")
     print("="*60)
     
+    # Construct path to labeled files
+    labeled_files_path = os.path.join(os.path.dirname(args.class_mapping), args.labeled_files)
+    print(f"Using labeled files: {labeled_files_path}")
+    
     full_dataset = SalakDataSet(
         root=args.data_root,
-        list_path=None,
+        list_path=labeled_files_path,
         class_mapping_csv=args.class_mapping,
         module='s4gan',
         crop_size=input_size,
@@ -732,16 +758,28 @@ def main():
             if args.use_ema and ema is not None:
                 ema.apply_shadow()
             
-            train_miou = evaluate_model(model, trainloader, device, args.num_classes, args.ignore_label)
-            val_miou = evaluate_model(model, valloader, device, args.num_classes, args.ignore_label)
+            train_metrics = evaluate_model(model, trainloader, device, args.num_classes, args.ignore_label)
+            val_metrics = evaluate_model(model, valloader, device, args.num_classes, args.ignore_label)
+            
+            train_miou = train_metrics['miou']
+            val_miou = val_metrics['miou']
             
             if args.use_ema and ema is not None:
                 ema.restore()
             
             gap = train_miou - val_miou
-            pbar.write(f"Training mIoU: {train_miou:.4f}")
-            pbar.write(f"Validation mIoU: {val_miou:.4f}")
-            pbar.write(f"Train/Val Gap: {gap:.4f}")
+            
+            pbar.write(f"\n📊 Step {i_iter} Evaluation:")
+            pbar.write(f"  Train mIoU (classes 1-6): {train_miou:.4f}")
+            pbar.write(f"  Train mIoU (all classes): {train_metrics['miou_with_bg']:.4f}")
+            pbar.write(f"  Val mIoU (classes 1-6):   {val_miou:.4f}")
+            pbar.write(f"  Val mIoU (all classes):   {val_metrics['miou_with_bg']:.4f}")
+            pbar.write(f"  Train/Val Gap: {gap:.4f}")
+            
+            # Print class-wise IoU scores for validation
+            pbar.write(f"  Val Class IoU scores:")
+            for class_idx, iou_score in enumerate(val_metrics['class_ious']):
+                pbar.write(f"    Class {class_idx}: {iou_score:.4f}")
             
             if gap > 0.10:
                 pbar.write(f"⚠️  WARNING: Large train/val gap! Possible overfitting.")
@@ -830,12 +868,27 @@ def main():
     if args.use_ema and ema is not None:
         ema.apply_shadow()
     
-    train_miou = evaluate_model(model, trainloader, device, args.num_classes, args.ignore_label)
-    val_miou = evaluate_model(model, valloader, device, args.num_classes, args.ignore_label)
+    train_metrics = evaluate_model(model, trainloader, device, args.num_classes, args.ignore_label)
+    val_metrics = evaluate_model(model, valloader, device, args.num_classes, args.ignore_label)
     
-    print(f"Final Training mIoU: {train_miou:.4f}")
-    print(f"Final Validation mIoU: {val_miou:.4f}")
-    print(f"Best Validation mIoU: {best_val_miou:.4f}")
+    train_miou = train_metrics['miou']
+    val_miou = val_metrics['miou']
+    
+    print(f"\n🎯 Final Results:")
+    print(f"  Train mIoU (classes 1-6): {train_miou:.4f}")
+    print(f"  Train mIoU (all classes): {train_metrics['miou_with_bg']:.4f}")
+    print(f"  Val mIoU (classes 1-6):   {val_miou:.4f}")
+    print(f"  Val mIoU (all classes):   {val_metrics['miou_with_bg']:.4f}")
+    print(f"  Best Validation mIoU: {best_val_miou:.4f}")
+    
+    print(f"\n📊 Final Class IoU Scores (Validation):")
+    for class_idx, iou_score in enumerate(val_metrics['class_ious']):
+        print(f"  Class {class_idx}: {iou_score:.4f}")
+    
+    print(f"\n💡 Summary:")
+    print(f"  mIoU excluding background (class 0): {val_miou:.4f}")
+    print(f"  mIoU including background (class 0): {val_metrics['miou_with_bg']:.4f}")
+    print(f"  Difference: {val_miou - val_metrics['miou_with_bg']:.4f}")
     print(f"Train/Val Gap: {(train_miou - val_miou):.4f}")
     
     if not args.no_wandb:
