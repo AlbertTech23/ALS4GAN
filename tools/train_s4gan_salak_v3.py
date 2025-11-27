@@ -776,8 +776,22 @@ def main():
             pbar.write(f"  Val mIoU (all classes):   {val_metrics['miou_with_bg']:.4f}")
             pbar.write(f"  Train/Val Gap: {gap:.4f}")
             
+            # Print additional metrics
+            train_det = train_metrics['detailed_metrics']
+            val_det = val_metrics['detailed_metrics']
+            pbar.write(f"\n  📈 Training Metrics:")
+            pbar.write(f"    Overall Accuracy: {train_det['Overall Accuracy']:.4f}")
+            pbar.write(f"    Producer Accuracy (Recall): {train_det['Producer Accuracy']:.4f}")
+            pbar.write(f"    User Accuracy (Precision): {train_det['User Accuracy']:.4f}")
+            pbar.write(f"    F1 Score: {train_det['F1 Score']:.4f}")
+            pbar.write(f"\n  📉 Validation Metrics:")
+            pbar.write(f"    Overall Accuracy: {val_det['Overall Accuracy']:.4f}")
+            pbar.write(f"    Producer Accuracy (Recall): {val_det['Producer Accuracy']:.4f}")
+            pbar.write(f"    User Accuracy (Precision): {val_det['User Accuracy']:.4f}")
+            pbar.write(f"    F1 Score: {val_det['F1 Score']:.4f}")
+            
             # Print class-wise IoU scores for validation
-            pbar.write(f"  Val Class IoU scores:")
+            pbar.write(f"\n  Val Class IoU scores:")
             for class_idx, iou_score in enumerate(val_metrics['class_ious']):
                 pbar.write(f"    Class {class_idx}: {iou_score:.4f}")
             
@@ -789,6 +803,14 @@ def main():
                     "Metrics/Training mIoU": train_miou,
                     "Metrics/Validation mIoU": val_miou,
                     "Metrics/Train-Val Gap": gap,
+                    "Metrics/Training Overall Accuracy": train_det['Overall Accuracy'],
+                    "Metrics/Training Producer Accuracy": train_det['Producer Accuracy'],
+                    "Metrics/Training User Accuracy": train_det['User Accuracy'],
+                    "Metrics/Training F1 Score": train_det['F1 Score'],
+                    "Metrics/Validation Overall Accuracy": val_det['Overall Accuracy'],
+                    "Metrics/Validation Producer Accuracy": val_det['Producer Accuracy'],
+                    "Metrics/Validation User Accuracy": val_det['User Accuracy'],
+                    "Metrics/Validation F1 Score": val_det['F1 Score'],
                     "Iteration": i_iter
                 })
             
@@ -819,6 +841,8 @@ def main():
             if patience_counter >= args.early_stop_patience:
                 pbar.write(f"\n⚠️  Early stopping triggered! No improvement for {args.early_stop_patience} evaluations.")
                 pbar.write(f"  Best mIoU: {best_val_miou:.4f}\n")
+                pbar.write(f"  Stopping training at iteration {i_iter}\n")
+                break  # Exit training loop
             
             pbar.write(f"{'='*60}\n")
         
@@ -880,6 +904,20 @@ def main():
     print(f"  Val mIoU (classes 1-6):   {val_miou:.4f}")
     print(f"  Val mIoU (all classes):   {val_metrics['miou_with_bg']:.4f}")
     print(f"  Best Validation mIoU: {best_val_miou:.4f}")
+    
+    # Print additional metrics
+    train_det = train_metrics['detailed_metrics']
+    val_det = val_metrics['detailed_metrics']
+    print(f"\n  📈 Final Training Metrics:")
+    print(f"    Overall Accuracy: {train_det['Overall Accuracy']:.4f}")
+    print(f"    Producer Accuracy (Recall): {train_det['Producer Accuracy']:.4f}")
+    print(f"    User Accuracy (Precision): {train_det['User Accuracy']:.4f}")
+    print(f"    F1 Score: {train_det['F1 Score']:.4f}")
+    print(f"\n  📉 Final Validation Metrics:")
+    print(f"    Overall Accuracy: {val_det['Overall Accuracy']:.4f}")
+    print(f"    Producer Accuracy (Recall): {val_det['Producer Accuracy']:.4f}")
+    print(f"    User Accuracy (Precision): {val_det['User Accuracy']:.4f}")
+    print(f"    F1 Score: {val_det['F1 Score']:.4f}")
     
     print(f"\n📊 Final Class IoU Scores (Validation):")
     for class_idx, iou_score in enumerate(val_metrics['class_ious']):

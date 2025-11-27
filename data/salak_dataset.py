@@ -228,42 +228,34 @@ class SalakDataSet(data.Dataset):
                                 available_masks.append(osp.join(root, file))
                     
                     if available_masks:
-                        # Pick a random mask from available ones (for augmentation diversity)
-                        label_file = np.random.choice(available_masks)
-                        
-                        # Update the image file to match the mask patch
-                        # Extract the mask filename to find corresponding image
-                        mask_filename = osp.basename(label_file)
-                        mask_base = osp.splitext(mask_filename)[0]
-                        
-                        # Look for image with same patch name
-                        images_dir = osp.join(found_folder, "images")
-                        for potential_ext in ['.png', '.PNG', '.jpg', '.JPG', '.jpeg', '.JPEG']:
-                            potential_img = osp.join(images_dir, mask_base + potential_ext)
-                            if osp.exists(potential_img):
-                                img_file = potential_img
-                                break
-                        
-                        # Verify the image exists
-                        if not osp.exists(img_file):
-                            print(f"WARNING: Image not found for mask {mask_filename} in {found_folder}")
-                            label_file = None
+                        # Add ALL patches for this base image (not just one random)
+                        for label_file in available_masks:
+                            # Extract the mask filename to find corresponding image
+                            mask_filename = osp.basename(label_file)
+                            mask_base = osp.splitext(mask_filename)[0]
+                            
+                            # Look for image with same patch name
+                            images_dir = osp.join(found_folder, "images")
+                            img_file = None
+                            for potential_ext in ['.png', '.PNG', '.jpg', '.JPG', '.jpeg', '.JPEG']:
+                                potential_img = osp.join(images_dir, mask_base + potential_ext)
+                                if osp.exists(potential_img):
+                                    img_file = potential_img
+                                    break
+                            
+                            # Only add if image exists
+                            if img_file and osp.exists(img_file):
+                                self.files.append({
+                                    "img": img_file,
+                                    "label": label_file,
+                                    "name": mask_base,
+                                    "folder": osp.basename(found_folder)
+                                })
+                            else:
+                                print(f"WARNING: Image not found for mask {mask_filename} in {found_folder}")
                     else:
                         # No masks found for this base name
                         print(f"WARNING: Mask not found for {name} in {found_folder}")
-                        label_file = None
-                else:
-                    # Empty masks folder - treat as unlabeled
-                    label_file = None
-            else:
-                label_file = None
-            
-            self.files.append({
-                "img": img_file,
-                "label": label_file,
-                "name": name,
-                "folder": osp.basename(found_folder) if found_folder else "unknown"
-            })
     
     def _load_all_patches(self, salak_folders):
         """Load ALL patches from all salak folders for training"""
